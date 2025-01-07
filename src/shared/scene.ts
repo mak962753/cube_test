@@ -2,36 +2,29 @@ import {
     Scene,
     PerspectiveCamera,
     WebGLRenderer,
-
     Mesh,
-
     PlaneGeometry,
     BoxGeometry,
-
     MeshBasicMaterial,
-
     DoubleSide,
     Vector3
 } from "three";
 
 class CubeMoverScene {
-
     private scene: Scene;
     private camera: PerspectiveCamera;
     private renderer: WebGLRenderer;
     private cube: Mesh;
-    private cleanups: (() => void)[] = [];
     private destroyed: boolean = false;
 
     // Target positions for each method
-    private targetLeft: Vector3 = new Vector3(-2, 2, 0);
-    private targetRight: Vector3 = new Vector3(2, 2, 0);
-    private targetForward: Vector3 = new Vector3(0, 2, 2);
+    private targetLeft: Vector3 = new Vector3(-4, 2, 0);
+    private targetRight: Vector3 = new Vector3(4, 2, 0);
+    private targetForward: Vector3 = new Vector3(0, 2, 4);
     private targetOrigin: Vector3 = new Vector3(0, 2, 0);
 
-    private target: {pos: Vector3, speed: number}|null = null;
-
-
+    private target: { position: Vector3, duration: number } | null = null;
+    private onResize: (() => void) | null = null;
 
     constructor(private parentNode: HTMLElement) {
         this.scene = new Scene();
@@ -40,133 +33,93 @@ class CubeMoverScene {
 
         // Add a horizontal plane
         const planeGeometry = new PlaneGeometry(40, 40);
-        const planeMaterial = new MeshBasicMaterial({color: 0x888888, side: DoubleSide});
+        const planeMaterial = new MeshBasicMaterial({ color: 0x888888, side: DoubleSide });
         const plane = new Mesh(planeGeometry, planeMaterial);
         plane.rotation.x = Math.PI / 2;
-        plane.position.x = 0;
-        plane.position.y = 0;
-        plane.position.z = 0;
         this.scene.add(plane);
 
         // Add a cube to the scene
         const cubeGeometry = new BoxGeometry(1, 1, 1);
-        const cubeMaterial = new  MeshBasicMaterial({color: 0xff0000});
+        const cubeMaterial = new MeshBasicMaterial({ color: 0xff0000 });
         this.cube = new Mesh(cubeGeometry, cubeMaterial);
-        this.cube.position.x = this.targetOrigin.x;
-        this.cube.position.y = this.targetOrigin.y;
-        this.cube.position.z = this.targetOrigin.z;
+        this.cube.position.copy(this.targetOrigin);
         this.scene.add(this.cube);
 
         // Set up the camera
-
         this.camera.position.set(0, 5, 15);
         this.camera.lookAt(this.targetOrigin);
         this.camera.updateProjectionMatrix();
 
         // Set up the renderer
         this.renderer.setSize(parentNode.clientWidth, parentNode.clientHeight);
-        this.parentNode.appendChild(this.renderer.domElement);
+        parentNode.appendChild(this.renderer.domElement);
 
         // Set up listeners for resizing the window
-        const onResize = () => {
+        this.onResize = () => {
             this.camera.aspect = parentNode.clientWidth / parentNode.clientHeight;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(parentNode.clientWidth, parentNode.clientHeight);
         };
 
-        window.addEventListener('resize', onResize);
-
-        this.cleanups.push(() => window.removeEventListener('resize', onResize));
+        window.addEventListener('resize', this.onResize);
+        this.destroyed = false;
     }
 
     public destroy(): void {
-        this.cleanups.forEach(fn => fn());
-        this.destroyed = true;
+        if (this.destroyed) return;
+
+        // Remove event listeners
+        this.onResize && window.removeEventListener('resize', this.onResize);
+
+        // Clear the parent element
         while (this.parentNode.firstChild) {
             this.parentNode.removeChild(this.parentNode.firstChild);
         }
+
+        // Dispose of resources
         this.renderer.dispose();
     }
 
     public left(): void {
-        this.target = {pos: this.targetLeft, speed: 2};
-        // this.targets.push({pos: this.targetLeft, step: 0.0000005});
-        // this.moveToTarget({pos: this.targetLeft, step: 0.1});
+        this.timestamp = 0;
+        this.target = { position: this.targetLeft, duration: 2000 };
     }
-
 
     public right(): void {
-        this.target = {pos: this.targetRight, speed: 2};
+        this.timestamp = 0;
+        this.target = { position: this.targetRight, duration: 1000 };
     }
-
 
     public forward(): void {
-        this.target = {pos: this.targetForward, speed: 2};
+        this.timestamp = 0;
+        this.target = { position: this.targetForward, duration: 1000 };
     }
 
+    private timestamp: number = 0;
+    private animate(timestamp: number): void {
+        if (this.destroyed) return;
 
-    private moveToTarget(target: {pos: Vector3, step: number}): void {
-        const direction = new Vector3().subVectors(target.pos, this.cube.position).normalize();
-        this.cube.position.addScaledVector(direction, target.step);
+        requestAnimationFrame(t => this.animate(t));
+
+        if (this.target) {
+            this.timestamp = this.timestamp || timestamp;
+            const dt = timestamp - this.timestamp;
+            if (dt < this.target.duration) {
+                const alpha = dt / this.target.duration;
+                this.cube.position.lerpVectors(this.cube.position, this.target.position, alpha);
+            } else {
+                this.cube.position.copy(this.target.position);
+                this.target = null;
+                this.timestamp = 0;
+            }
+        }
+
+        this.renderer.render(this.scene, this.camera);
     }
 
-    public animate(): void {
-        if (this.destroyed)
-            return;
-
-
-        // do  {
-        //     const target = this.targets[0];
-        //     if (!target)
-        //         break;
-
-        //     const d = this.cube.position.distanceTo(target.pos);
-
-        //     if (Math.abs(d) < target.step) {
-        //         this.targets.shift();
-        //         continue;
-        //     }
-        //     this.moveToTarget(target);
-        // } while(true);
-
-
-        requestAnimationFrame(timestamp => {
-            this.updateCubePosition(timestamp);
-            this.animate();
-            this.renderer.render(this.scene, this.camera);
-        });
-
-    }
-
-    private updateCubePositionTimestamp: number = 0;
-    private updateCubePosition(timestamp: number): void {
-        if (!this.target){
-            this.updateCubePositionTimestamp = timestamp;
-            return;
-        }
-        console.log(`timestamp: ${timestamp}`);
-
-        const dt = (timestamp - this.updateCubePositionTimestamp);
-        if (dt < 1000 / 60) {
-            return;
-        }
-        this.updateCubePositionTimestamp = timestamp;
-
-        const d = this.cube.position.distanceTo(this.target.pos)
-        if (d < 0.001) {
-            this.target = null;
-            return;
-        }
-        const t = 1000 * d / this.target.speed;
-        const alpha = Math.min(1,  t === 0 ? 1 : dt / t);
-        console.log(`dt: ${dt}, d:${d}, t:${t}, alpha:${alpha}`);
-        this.cube.position.lerp(this.target.pos, alpha);
-
-        // dtSec * this.target.speed;
-
+    public startAnimation(): void {
+        requestAnimationFrame((timestamp) => this.animate(timestamp));
     }
 }
 
-export {
-    CubeMoverScene
-}
+export { CubeMoverScene };
