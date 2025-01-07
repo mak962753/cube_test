@@ -1,1 +1,0 @@
-import{d as s,_ as t,c as a,a as o,o as n}from"./index-BLDsKU4T.js";const c=s({name:"Home"}),p={class:"home"};function r(i,e,d,l,m,_){return n(),a("div",p,e[0]||(e[0]=[o("h1",null,"Welcome to Your Vue.js App",-1),o("p",null,"This is the home view of your application.",-1)]))}const f=t(c,[["render",r],["__scopeId","data-v-0818311e"]]);export{f as default};
