@@ -7,8 +7,14 @@ import {
     BoxGeometry,
     MeshBasicMaterial,
     DoubleSide,
-    Vector3
+    Vector3,
+
 } from "three";
+
+// Easing function for smooth movement
+function easeOutQuad(t: number): number {
+    return t * (2 - t);
+}
 
 class CubeMoverScene {
     private scene: Scene;
@@ -25,6 +31,7 @@ class CubeMoverScene {
 
     private target: { position: Vector3, duration: number } | null = null;
     private onResize: (() => void) | null = null;
+    private timestamp: number = 0;
 
     constructor(private parentNode: HTMLElement) {
         this.scene = new Scene();
@@ -95,7 +102,6 @@ class CubeMoverScene {
         this.target = { position: this.targetForward, duration: 1000 };
     }
 
-    private timestamp: number = 0;
     private animate(timestamp: number): void {
         if (this.destroyed) return;
 
@@ -103,14 +109,13 @@ class CubeMoverScene {
 
         if (this.target) {
             this.timestamp = this.timestamp || timestamp;
-            const dt = timestamp - this.timestamp;
-            if (dt < this.target.duration) {
-                const alpha = dt / this.target.duration;
+            const elapsedTime = timestamp - this.timestamp;
+            if (elapsedTime < this.target.duration) {
+                const alpha = easeOutQuad(elapsedTime / this.target.duration);
                 this.cube.position.lerpVectors(this.cube.position, this.target.position, alpha);
             } else {
                 this.cube.position.copy(this.target.position);
                 this.target = null;
-                this.timestamp = 0;
             }
         }
 
