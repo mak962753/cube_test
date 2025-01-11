@@ -10,6 +10,7 @@ import {
     DoubleSide,
     Vector3,
     PointLight,
+    Euler,
 } from "three";
 
 // Easing function for smooth movement
@@ -31,9 +32,10 @@ class CubeMoverScene {
     private targetBack: Vector3 = new Vector3(0, 2, -4);
     private targetOrigin: Vector3 = new Vector3(0, 2, 0);
 
-    private target: { position: Vector3, duration: number } | null = null;
+    private cameraRotation: Vector3 = new Vector3(0,0,0);
+
+    private transforms: { timestamp: number, source: Vector3, target: Vector3|Euler, duration: number, done: boolean, update?: (v: Vector3) => void  }[] = [];
     private onResize: (() => void) | null = null;
-    private timestamp: number = 0;
 
     constructor(private parentNode: HTMLElement) {
         this.scene = new Scene();
@@ -74,6 +76,8 @@ class CubeMoverScene {
         this.camera.lookAt(0,0,0);
         this.camera.updateProjectionMatrix();
 
+        this.cameraRotation.copy(this.camera.rotation);
+
         // Set up the renderer
         this.renderer.setSize(parentNode.clientWidth, parentNode.clientHeight);
         parentNode.appendChild(this.renderer.domElement);
@@ -105,22 +109,46 @@ class CubeMoverScene {
     }
 
     public left(): void {
-        this.timestamp = 0;
-        this.target = { position: this.targetLeft, duration: 2000 };
+        this.transforms = [{
+            source: this.cube.position,
+            target: this.targetLeft,
+            duration: 2000,
+            done: false,
+            timestamp: 0,
+            update: v => this.camera.lookAt(v)
+        }];
     }
 
     public right(): void {
-        this.timestamp = 0;
-        this.target = { position: this.targetRight, duration: 1000 };
+        this.transforms = [{
+            source: this.cube.position,
+            target: this.targetRight,
+            duration: 2000,
+            done: false,
+            timestamp: 0,
+            update: v => this.camera.lookAt(v)
+        }];
     }
 
     public forward(): void {
-        this.timestamp = 0;
-        this.target = { position: this.targetForward, duration: 1000 };
+        this.transforms = [{
+            source: this.cube.position,
+            target: this.targetForward,
+            duration: 2000,
+            done: false,
+            timestamp: 0,
+            update: v => this.camera.lookAt(v)
+        }];
     }
     public back(): void {
-        this.timestamp = 0;
-        this.target = { position: this.targetBack, duration: 1000 };
+        this.transforms = [{
+            source: this.cube.position,
+            target: this.targetBack,
+            duration: 2000,
+            done: false,
+            timestamp: 0,
+            update: v => this.camera.lookAt(v)
+        }];
     }
 
     private animate(timestamp: number): void {
@@ -128,16 +156,27 @@ class CubeMoverScene {
 
         requestAnimationFrame(t => this.animate(t));
 
-        if (this.target) {
-            this.timestamp = this.timestamp || timestamp;
-            const elapsedTime = timestamp - this.timestamp;
-            if (elapsedTime < this.target.duration) {
-                const alpha = easeOutQuad(elapsedTime / this.target.duration);
-                this.cube.position.lerpVectors(this.cube.position, this.target.position, alpha);
-            } else {
-                this.cube.position.copy(this.target.position);
-                this.target = null;
+        if (this.transforms.length) {
+            for (let t of this.transforms) {
+                if (t.done) {
+                    continue;
+                }
+                t.timestamp = t.timestamp  || timestamp;
+                const elapsedTime = timestamp - t.timestamp;
+                if (elapsedTime < t.duration) {
+                    const alpha = easeOutQuad(elapsedTime / t.duration);
+
+                    t.source.lerpVectors(t.source, t.target, alpha);
+                    if (t.update)
+                        t.update(t.source);
+                } else {
+                    t.source.copy(t.target);
+                    if (t.update)
+                        t.update(t.source);
+                    t.done = true;
+                }
             }
+
         }
 
         this.renderer.render(this.scene, this.camera);
