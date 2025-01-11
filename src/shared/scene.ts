@@ -27,6 +27,7 @@ class CubeMoverScene {
     private targetLeft: Vector3 = new Vector3(-4, 2, 0);
     private targetRight: Vector3 = new Vector3(4, 2, 0);
     private targetForward: Vector3 = new Vector3(0, 2, 4);
+    private targetBack: Vector3 = new Vector3(0, 2, -4);
     private targetOrigin: Vector3 = new Vector3(0, 2, 0);
 
     private target: { position: Vector3, duration: number } | null = null;
@@ -100,6 +101,10 @@ class CubeMoverScene {
     public forward(): void {
         this.timestamp = 0;
         this.target = { position: this.targetForward, duration: 1000 };
+    }
+    public back(): void {
+        this.timestamp = 0;
+        this.target = { position: this.targetBack, duration: 1000 };
     }
 
     private animate(timestamp: number): void {
