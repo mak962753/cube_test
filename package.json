@@ -1,8 +1,9 @@
 {
   "name": "my-vue3-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "scripts": {
+    "bump": "npm version -f patch",
     "serve": "vite",
     "build": "vite build --base=/cube_test/dist/"
   },
