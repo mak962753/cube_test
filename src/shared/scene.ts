@@ -10,12 +10,20 @@ import {
     DoubleSide,
     Vector3,
     PointLight,
-    Euler,
 } from "three";
 
 // Easing function for smooth movement
 function easeOutQuad(t: number): number {
     return t * (2 - t);
+}
+
+interface Transform {
+    timestamp: number;
+    source: Vector3;
+    target: Vector3;
+    duration: number;
+    done: boolean;
+    update?: (v: Vector3) => void;
 }
 
 class CubeMoverScene {
@@ -32,15 +40,14 @@ class CubeMoverScene {
     private targetBack: Vector3 = new Vector3(0, 2, -4);
     private targetOrigin: Vector3 = new Vector3(0, 2, 0);
 
-    private cameraRotation: Vector3 = new Vector3(0,0,0);
-
-    private transforms: { timestamp: number, source: Vector3, target: Vector3|Euler, duration: number, done: boolean, update?: (v: Vector3) => void  }[] = [];
+    private cameraRotation: Vector3 = new Vector3(0, 0, 0);
+    private transforms: Transform[] = [];
     private onResize: (() => void) | null = null;
 
     constructor(private parentNode: HTMLElement) {
         this.scene = new Scene();
         this.camera = new PerspectiveCamera(90, parentNode.clientWidth / parentNode.clientHeight, 0.1, 1000);
-        this.renderer = new WebGLRenderer({antialias: true});
+        this.renderer = new WebGLRenderer({ antialias: true });
 
         // Add a horizontal plane
         const planeGeometry = new PlaneGeometry(40, 40);
@@ -57,10 +64,10 @@ class CubeMoverScene {
         this.scene.add(this.cube);
 
         const lightValues = [
-            {colour: 0x14D14A, intensity: 10, dist: 100, x: 0, y: 5, z: 10},
-            {colour: 0xBE61CF, intensity: 10, dist: 100, x: 0, y: 5, z: -10},
-            {colour: 0x00FFFF, intensity: 10, dist: 100, x: 10, y: 10, z: 0},
-            {colour: 0x00FF00, intensity: 10, dist: 100, x: -10, y: 10, z: 0},
+            { colour: 0x14D14A, intensity: 10, dist: 100, x: 0, y: 5, z: 10 },
+            { colour: 0xBE61CF, intensity: 10, dist: 100, x: 0, y: 5, z: -10 },
+            { colour: 0x00FFFF, intensity: 10, dist: 100, x: 10, y: 10, z: 0 },
+            { colour: 0x00FF00, intensity: 10, dist: 100, x: -10, y: 10, z: 0 },
         ];
 
         const lights = lightValues.map(l => {
@@ -73,7 +80,7 @@ class CubeMoverScene {
 
         // Set up the camera
         this.camera.position.set(0, 10, 15);
-        this.camera.lookAt(0,0,0);
+        this.camera.lookAt(0, 0, 0);
         this.camera.updateProjectionMatrix();
 
         this.cameraRotation.copy(this.camera.rotation);
@@ -84,13 +91,11 @@ class CubeMoverScene {
 
         // Set up listeners for resizing the window
         this.onResize = () => {
-            this.camera.aspect = parentNode.clientWidth / parentNode.clientHeight;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize(parentNode.clientWidth, parentNode.clientHeight);
+            this.resizeCamera();
+            this.resizeRenderer();
         };
 
         window.addEventListener('resize', this.onResize);
-        this.destroyed = false;
     }
 
     public destroy(): void {
@@ -109,46 +114,36 @@ class CubeMoverScene {
     }
 
     public left(): void {
-        this.transforms = [{
-            source: this.cube.position,
-            target: this.targetLeft,
-            duration: 2000,
-            done: false,
-            timestamp: 0,
-            update: v => this.camera.lookAt(v)
-        }];
+        this.queueTransform({ source: this.cube.position, target: this.targetLeft, duration: 2000 });
     }
 
     public right(): void {
-        this.transforms = [{
-            source: this.cube.position,
-            target: this.targetRight,
-            duration: 2000,
-            done: false,
-            timestamp: 0,
-            update: v => this.camera.lookAt(v)
-        }];
+        this.queueTransform({ source: this.cube.position, target: this.targetRight, duration: 2000 });
     }
 
     public forward(): void {
-        this.transforms = [{
-            source: this.cube.position,
-            target: this.targetForward,
-            duration: 2000,
-            done: false,
-            timestamp: 0,
-            update: v => this.camera.lookAt(v)
-        }];
+        this.queueTransform({ source: this.cube.position, target: this.targetForward, duration: 2000 });
     }
+
     public back(): void {
-        this.transforms = [{
-            source: this.cube.position,
-            target: this.targetBack,
-            duration: 2000,
+        this.queueTransform({ source: this.cube.position, target: this.targetBack, duration: 2000 });
+    }
+
+    private queueTransform(transform: Omit<Transform, "timestamp"|"done">): void {
+        this.transforms.push({
+            ...transform,
             done: false,
             timestamp: 0,
-            update: v => this.camera.lookAt(v)
-        }];
+        });
+    }
+
+    private resizeCamera(): void {
+        this.camera.aspect = this.parentNode.clientWidth / this.parentNode.clientHeight;
+        this.camera.updateProjectionMatrix();
+    }
+
+    private resizeRenderer(): void {
+        this.renderer.setSize(this.parentNode.clientWidth, this.parentNode.clientHeight);
     }
 
     private animate(timestamp: number): void {
@@ -156,27 +151,28 @@ class CubeMoverScene {
 
         requestAnimationFrame(t => this.animate(t));
 
-        if (this.transforms.length) {
-            for (let t of this.transforms) {
-                if (t.done) {
-                    continue;
-                }
-                t.timestamp = t.timestamp  || timestamp;
-                const elapsedTime = timestamp - t.timestamp;
-                if (elapsedTime < t.duration) {
-                    const alpha = easeOutQuad(elapsedTime / t.duration);
-
-                    t.source.lerpVectors(t.source, t.target, alpha);
-                    if (t.update)
-                        t.update(t.source);
-                } else {
-                    t.source.copy(t.target);
-                    if (t.update)
-                        t.update(t.source);
-                    t.done = true;
-                }
+        for (let i = this.transforms.length - 1; i >= 0; i--) {
+            const transform = this.transforms[i];
+            if (transform.done) {
+                this.transforms.splice(i, 1);
+                continue;
             }
 
+            transform.timestamp = transform.timestamp || timestamp;
+            const elapsedTime = timestamp - transform.timestamp;
+
+            if (elapsedTime < transform.duration) {
+                const alpha = easeOutQuad(elapsedTime / transform.duration);
+                transform.source.lerpVectors(transform.source, transform.target, alpha);
+                if (transform.update)
+                    transform.update(transform.source);
+            } else {
+                transform.source.copy(transform.target);
+                if (transform.update)
+                    transform.update(transform.source);
+                transform.done = true;
+                this.transforms.splice(i, 1);
+            }
         }
 
         this.renderer.render(this.scene, this.camera);
