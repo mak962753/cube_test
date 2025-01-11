@@ -11,7 +11,6 @@
                 title="Warning!"
                 text="Please allow microphone access."
             />
-            <Button @click="checkMicAccess">Retry</Button>
         </div>
     </template>
     <template v-else>
@@ -54,15 +53,15 @@ const isMicrophoneEnabled = shallowRef(false);
 const refCube = shallowRef<any|null>(null);
 const isStarted = shallowRef(false);
 const transcriptLines = shallowRef<string[]>([]);
+const interimLine = shallowRef<string>("");
 const global = <any>window;
 const SpeechRecognition = global.SpeechRecognition || global.webkitSpeechRecognition;
 const SpeechGrammarList  = global.SpeechGrammarList  || global.webkitSpeechGrammarList ;
 const SpeechRecognitionEvent = global.SpeechRecognitionEvent || global.webkitSpeechRecognitionEvent;
 let recognition: any;
 
-
 const transcriptText = computed(() => {
-    return transcriptLines.value.join("\n");
+    return transcriptLines.value.join("\n") + "\n" + interimLine.value;
 });
 
 const COMMANDS: Record<string, (cube: CubeExports) => void> = {
@@ -89,19 +88,35 @@ onMounted(() => {
         const grammar = `#JSGF V1.0; grammar directions; public <direction> = ${directions.join(" | ",)};`;
         speechRecognitionList.addFromString(grammar, 1);
         recognition.grammars = speechRecognitionList;
-        recognition.continuous = false;
+        recognition.continuous = true;
         recognition.lang = "en-US";
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
         recognition.onresult = (event: any) => {
+            // console.log(event.results)
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                const lines = unref(transcriptLines);
+                // If the result item is Final, add it to Final Transcript, Else add it to Interim transcript
+                const text = String(event.results[i][0].transcript);
+                if (event.results[i].isFinal) {
+                    interimLine.value = "";
+                    text.split(" ")
+                        .map(i => COMMANDS[i.toLowerCase()])
+                        .filter(Boolean)
+                        .forEach(f => f && f(refCube.value));
 
-            const text = String(event.results[0][0].transcript);
-            transcriptLines.value = [...unref(transcriptLines), text];
+                    transcriptLines.value = [...lines, text];
+                } else {
+                    // interimLine.value += text;
 
-            text.split(" ")
-                .map(i => COMMANDS[i.toLowerCase()])
-                .filter(Boolean)
-                .forEach(f => f && f(refCube.value));
+                    // text.split(" ")
+                    //     .map(i => COMMANDS[i.toLowerCase()])
+                    //     .filter(Boolean)
+                    //     .forEach(f => f && f(refCube.value));
+                }
+
+            }
+
         };
 
         recognition.onspeechend = () => {
@@ -138,8 +153,11 @@ function checkMicAccess() {
         // { name: 'push', userVisibleOnly: true }
         // { name: 'push' } // without userVisibleOnly isn't supported in chrome M45, yet
     ).then(function(permissionStatus){
-        console.log(permissionStatus.state); // granted, denied, prompt
+        //console.log(permissionStatus.state); // granted, denied, prompt
         isMicrophoneEnabled.value = "granted" === permissionStatus.state;
+        if (!isMicrophoneEnabled.value) {
+            navigator.mediaDevices.getUserMedia({audio: true});
+        }
         permissionStatus.onchange = function() {
             isMicrophoneEnabled.value = "granted" === permissionStatus.state;
         };

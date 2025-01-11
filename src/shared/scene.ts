@@ -6,9 +6,10 @@ import {
     PlaneGeometry,
     BoxGeometry,
     MeshBasicMaterial,
+    MeshLambertMaterial,
     DoubleSide,
     Vector3,
-
+    PointLight,
 } from "three";
 
 // Easing function for smooth movement
@@ -37,7 +38,7 @@ class CubeMoverScene {
     constructor(private parentNode: HTMLElement) {
         this.scene = new Scene();
         this.camera = new PerspectiveCamera(90, parentNode.clientWidth / parentNode.clientHeight, 0.1, 1000);
-        this.renderer = new WebGLRenderer();
+        this.renderer = new WebGLRenderer({antialias: true});
 
         // Add a horizontal plane
         const planeGeometry = new PlaneGeometry(40, 40);
@@ -48,14 +49,29 @@ class CubeMoverScene {
 
         // Add a cube to the scene
         const cubeGeometry = new BoxGeometry(1, 1, 1);
-        const cubeMaterial = new MeshBasicMaterial({ color: 0xff0000 });
+        const cubeMaterial = new MeshLambertMaterial({ color: 0xff0000 });
         this.cube = new Mesh(cubeGeometry, cubeMaterial);
         this.cube.position.copy(this.targetOrigin);
         this.scene.add(this.cube);
 
+        const lightValues = [
+            {colour: 0x14D14A, intensity: 10, dist: 100, x: 0, y: 5, z: 10},
+            {colour: 0xBE61CF, intensity: 10, dist: 100, x: 0, y: 5, z: -10},
+            {colour: 0x00FFFF, intensity: 10, dist: 100, x: 10, y: 10, z: 0},
+            {colour: 0x00FF00, intensity: 10, dist: 100, x: -10, y: 10, z: 0},
+        ];
+
+        const lights = lightValues.map(l => {
+            const r = new PointLight(l.colour, l.intensity * 1000, l.dist);
+            r.position.set(l.x, l.y, l.z);
+            return r;
+        });
+
+        lights.forEach(l => this.scene.add(l));
+
         // Set up the camera
-        this.camera.position.set(0, 5, 15);
-        this.camera.lookAt(this.targetOrigin);
+        this.camera.position.set(0, 10, 15);
+        this.camera.lookAt(0,0,0);
         this.camera.updateProjectionMatrix();
 
         // Set up the renderer
