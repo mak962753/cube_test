@@ -4,6 +4,10 @@ import svgLoader from 'vite-svg-loader';
 console.log(process.env.npm_package_version)
 export default defineConfig({
   plugins: [vue(), svgLoader()],
+  build: {
+    outDir: "../dist",
+    emptyOutDir: true,
+  },
   server:{
     port: 33333,
   },define: {

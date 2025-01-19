@@ -15,18 +15,16 @@
     </template>
     <template v-else>
         <div class="flex flex-col flex-initial items-center justify-center gap-4 mt-8 w-full">
-            <div class="flex gap-4">
+            <div class="flex w-full justify-center gap-4">
                 <Button @click="start" :disabled="isStarted">Start</Button>
                 <Button @click="stop" outline :disabled="!isStarted">Stop</Button>
             </div>
-            <div class="flex w-auto gap-4 flex-initial">
+            <div class="flex w-full justify-center gap-4">
                 <CubeScene class="flex-1 w-full" ref="refCube" />
-                <div>
-                    <Textarea :value="transcriptText" class="w-96 h-full" disabled></Textarea>
-                </div>
             </div>
-
-
+            <div>
+                <Textarea :value="transcriptText" class="w-96 h-full" disabled></Textarea>
+            </div>
         </div>
     </template>
 </template>

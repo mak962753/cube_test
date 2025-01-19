@@ -9,7 +9,7 @@ const routes = [
   {
     path: "/",
     name: "cube",
-    component: () => import("../views/Cube.vue"),
+    component: () => import("../views/CubeEmotions.vue"),
   },
 ];
 

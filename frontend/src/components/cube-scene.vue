@@ -1,6 +1,9 @@
 <template>
-    <div ref="refView" class="view">
+    <div class="flex w-full">
+        <div ref="refView" class="view">
 
+        </div>
+        <slot></slot>
     </div>
 
 </template>
@@ -12,7 +15,9 @@ const refView = shallowRef<HTMLDivElement | null>(null);
 let scene: CubeMoverScene | null = null;
 onMounted(() => {
     if (refView.value) {
-        scene = new CubeMoverScene(refView.value);
+        scene = new CubeMoverScene(refView.value, {
+            parallelTransforms: false,
+        });
         scene.startAnimation();
     }
 });
@@ -21,18 +26,20 @@ onUnmounted(() => {
     scene?.destroy();
 });
 
-function onLeft() {
-    scene?.left();
+function onLeft(factor: number = 1) {
+    scene?.left(factor);
 }
 
-function onRight() {
-    scene?.right();
+function onRight(factor: number = 1) {
+    scene?.right(factor);
 }
-function onForward() {
-    scene?.forward();
+
+function onForward(factor: number = 1) {
+    scene?.forward(factor);
 }
-function onBack() {
-    scene?.back();
+
+function onBack(factor: number = 1) {
+    scene?.back(factor);
 }
 
 defineExpose({
@@ -45,7 +52,6 @@ defineExpose({
 <style lang="scss" scoped>
 
     .view {
-        margin: auto;
         flex: 1 1 640px;
         max-width: 640px;
         min-width: 320px;
